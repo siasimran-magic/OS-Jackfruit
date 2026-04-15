@@ -1,111 +1,259 @@
-# Multi-Container Runtime
 
-A lightweight Linux container runtime in C with a long-running supervisor and a kernel-space memory monitor.
+# Multi-Container Runtime with Kernel Memory Monitor
 
-Read [`project-guide.md`](project-guide.md) for the full project specification.
+## 1. Team Information
+- Name 1 – Simret M Kotian
+SRN:PES1UG24CS456 
+- Name 2 – Sia Simran A
+SRN:PES1UG24CS453
 
 ---
 
-## Getting Started
+## 2. Build, Load, and Run Instructions
 
-### 1. Fork the Repository
+### Build
+```bash
+make
+````
 
-1. Go to [github.com/shivangjhalani/OS-Jackfruit](https://github.com/shivangjhalani/OS-Jackfruit)
-2. Click **Fork** (top-right)
-3. Clone your fork:
+### Load Kernel Module
 
 ```bash
-git clone https://github.com/<your-username>/OS-Jackfruit.git
-cd OS-Jackfruit
+sudo insmod monitor.ko
+ls -l /dev/container_monitor
 ```
 
-### 2. Set Up Your VM
-
-You need an **Ubuntu 22.04 or 24.04** VM with **Secure Boot OFF**. WSL will not work.
-
-Install dependencies:
-
-```bash
-sudo apt update
-sudo apt install -y build-essential linux-headers-$(uname -r)
-```
-
-### 3. Run the Environment Check
-
-```bash
-cd boilerplate
-chmod +x environment-check.sh
-sudo ./environment-check.sh
-```
-
-Fix any issues reported before moving on.
-
-### 4. Prepare the Root Filesystem
+### Prepare Root Filesystem
 
 ```bash
 mkdir rootfs-base
 wget https://dl-cdn.alpinelinux.org/alpine/v3.20/releases/x86_64/alpine-minirootfs-3.20.3-x86_64.tar.gz
 tar -xzf alpine-minirootfs-3.20.3-x86_64.tar.gz -C rootfs-base
+```
 
-# Make one writable copy per container you plan to run
+Create per-container root filesystems:
+
+```bash
 cp -a ./rootfs-base ./rootfs-alpha
 cp -a ./rootfs-base ./rootfs-beta
 ```
 
-Do not commit `rootfs-base/` or `rootfs-*` directories to your repository.
-
-### 5. Understand the Boilerplate
-
-The `boilerplate/` folder contains starter files:
-
-| File                   | Purpose                                             |
-| ---------------------- | --------------------------------------------------- |
-| `engine.c`             | User-space runtime and supervisor skeleton          |
-| `monitor.c`            | Kernel module skeleton                              |
-| `monitor_ioctl.h`      | Shared ioctl command definitions                    |
-| `Makefile`             | Build targets for both user-space and kernel module |
-| `cpu_hog.c`            | CPU-bound test workload                             |
-| `io_pulse.c`           | I/O-bound test workload                             |
-| `memory_hog.c`         | Memory-consuming test workload                      |
-| `environment-check.sh` | VM environment preflight check                      |
-
-Use these as your starting point. You are free to restructure the repository however you want — the submission requirements are listed in the project guide.
-
-### 6. Build and Verify
+### Start Supervisor
 
 ```bash
-cd boilerplate
-make
+sudo ./engine supervisor ./rootfs-base
 ```
 
-If this compiles without errors, your environment is ready.
-
-### 7. GitHub Actions Smoke Check
-
-Your fork will inherit a minimal GitHub Actions workflow from this repository.
-
-That workflow only performs CI-safe checks:
-
-- `make -C boilerplate ci`
-- user-space binary compilation (`engine`, `memory_hog`, `cpu_hog`, `io_pulse`)
-- `./boilerplate/engine` with no arguments must print usage and exit with a non-zero status
-
-The CI-safe build command is:
+### Run Containers
 
 ```bash
-make -C boilerplate ci
+sudo ./engine start alpha ./rootfs-alpha /bin/sh --soft-mib 48 --hard-mib 80
+sudo ./engine start beta ./rootfs-beta /bin/sh --soft-mib 64 --hard-mib 96
 ```
 
-This smoke check does not test kernel-module loading, supervisor runtime behavior, or container execution.
+### List Containers
+
+```bash
+sudo ./engine ps
+```
+
+### View Logs
+
+```bash
+sudo ./engine logs alpha
+```
+
+### Stop Containers
+
+```bash
+sudo ./engine stop alpha
+sudo ./engine stop beta
+```
+
+### Cleanup
+
+```bash
+sudo rmmod monitor
+```
 
 ---
 
-## What to Do Next
+## 3. Demo with Screenshots
 
-Read [`project-guide.md`](project-guide.md) end to end. It contains:
+### 3.1 Environment Setup
 
-- The six implementation tasks (multi-container runtime, CLI, logging, kernel monitor, scheduling experiments, cleanup)
-- The engineering analysis you must write
-- The exact submission requirements, including what your `README.md` must contain (screenshots, analysis, design decisions)
+**Caption:** Successful installation of dependencies, environment validation, and Makefile build completion.
 
-Your fork's `README.md` should be replaced with your own project documentation as described in the submission package section of the project guide. (As in get rid of all the above content and replace with your README.md)
+<img width="1349" height="453" alt="env_check" src="https://github.com/user-attachments/assets/af6e358a-3197-414b-9cba-cd100ad64860" />
+
+---
+
+### 3.2 Root Filesystem Setup
+
+**Caption:** Download and extraction of Alpine mini root filesystem used as the base image for containers.
+**Attach screenshot here (Page 2 - top)**
+
+---
+
+### 3.3 Multi-container Supervision
+
+**Caption:** Multiple containers (alpha, beta, gamma) running simultaneously under a single supervisor process with separate root filesystems.
+**Attach screenshot here (Page 2 - bottom)**
+
+---
+
+### 3.4 CLI and Supervisor Interaction
+
+**Caption:** Supervisor running in one terminal while client commands are issued from another terminal to start multiple containers.
+**Attach screenshot here (Page 3)**
+
+---
+
+### 3.5 Metadata Tracking
+
+**Caption:** Output of `engine ps` showing container ID, PID, state, uptime, and configured memory limits for multiple containers.
+**Attach screenshot here (Page 4 - top)**
+
+---
+
+### 3.6 Bounded-Buffer Logging
+
+**Caption:** Logs generated by containers being captured and written to per-container log files, demonstrating the logging pipeline.
+**Attach screenshot here (Page 4–5)**
+
+---
+
+### 3.7 CLI and IPC Mechanism
+
+**Caption:** CLI commands interacting with the supervisor and receiving responses, demonstrating inter-process communication.
+**Attach screenshot here (Page 5)**
+
+---
+
+### 3.8 Soft Limit Enforcement
+
+**Caption:** Kernel log (`dmesg`) output showing a container exceeding the soft memory limit and triggering a warning.
+**Attach screenshot here (Page 7)**
+
+---
+
+### 3.9 Hard Limit Enforcement
+
+**Caption:** Kernel log showing a container exceeding the hard memory limit and being terminated, with the status reflected in container metadata.
+**Attach screenshot here (Page 7)**
+
+---
+
+### 3.10 Scheduling Experiments
+
+**Caption:** Execution of multiple workloads with different configurations showing observable differences in scheduling behavior.
+**Attach screenshot here (Page 8–9)**
+
+---
+
+### 3.11 Clean Teardown
+
+**Caption:** System shutdown showing containers stopped, logs flushed, and resources cleaned up after execution.
+**Attach screenshot here (Page 6 and 10)**
+
+---
+
+## 4. Engineering Analysis
+
+### Isolation Mechanisms
+
+The runtime achieves isolation using PID, UTS, and mount namespaces. Each container operates in its own namespace, ensuring separation of processes and system identity. Filesystem isolation is implemented using separate rootfs directories with chroot. The kernel remains shared across all containers.
+
+---
+
+### Supervisor and Process Lifecycle
+
+A long-running supervisor process manages container creation using `clone()`, maintains metadata, and handles signals. It ensures proper cleanup of child processes using SIGCHLD handlers, preventing zombie processes and maintaining accurate container states.
+
+---
+
+### IPC, Threads, and Synchronization
+
+Two IPC mechanisms are used:
+
+* Pipes for capturing container stdout/stderr (logging)
+* UNIX domain sockets (or equivalent) for CLI-to-supervisor communication
+
+A bounded-buffer logging system is implemented using producer-consumer threads. Mutexes and condition variables are used to synchronize access, preventing race conditions such as data corruption, buffer overflow, and deadlocks.
+
+---
+
+### Memory Management and Enforcement
+
+The kernel module monitors RSS memory usage of container processes. Soft limits trigger warnings, while hard limits enforce termination. Kernel-space enforcement ensures accurate and secure monitoring, which cannot be reliably handled in user space alone.
+
+---
+
+### Scheduling Behavior
+
+Different workloads were executed with varying priorities. CPU-bound processes with lower nice values received more CPU time, while higher nice values reduced CPU allocation. Experiments demonstrate fairness and responsiveness of the Linux scheduler.
+
+---
+
+## 5. Design Decisions and Tradeoffs
+
+### Namespace Isolation
+
+Choice: chroot with namespaces
+Tradeoff: Simpler implementation but less secure than pivot_root
+Justification: Adequate for project scope and easier to implement
+
+---
+
+### Supervisor Architecture
+
+Choice: Single long-running supervisor process
+Tradeoff: Centralized control vs potential bottleneck
+Justification: Simplifies container lifecycle management
+
+---
+
+### IPC and Logging
+
+Choice: Pipes with bounded-buffer logging
+Tradeoff: Increased complexity vs reliable logging
+Justification: Prevents data loss and ensures safe concurrent logging
+
+---
+
+### Kernel Monitor
+
+Choice: Kernel module with ioctl interface
+Tradeoff: Requires kernel-level debugging
+Justification: Necessary for accurate memory tracking and enforcement
+
+---
+
+### Scheduling Experiments
+
+Choice: CPU-bound and I/O-bound workloads
+Tradeoff: Limited variety vs clear observable results
+Justification: Effectively demonstrates scheduler behavior
+
+---
+
+## 6. Scheduler Experiment Results
+
+| Workload Type | Configuration | Observation                            |
+| ------------- | ------------- | -------------------------------------- |
+| CPU-bound     | Lower nice    | Higher CPU usage and faster completion |
+| CPU-bound     | Higher nice   | Reduced CPU share                      |
+| Mixed         | Same priority | Fair scheduling observed               |
+
+The results demonstrate that Linux scheduling balances fairness, responsiveness, and priority-based execution.
+
+```
+
+---
+
+This will render perfectly on GitHub or submission portals.
+
+If you want next step, I can:
+- trim it to fit **strict page limits**, or  
+- make it look more **topper-level (distinction-grade wording)** without adding length.
+```
